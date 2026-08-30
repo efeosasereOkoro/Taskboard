@@ -100,7 +100,13 @@ export function useTaskManager() {
         setIsSyncing(true);
         if (!supabase) return;
 
-        // Fetch categories first
+        // 1. Always ensure categories exist in database first
+        const currentCats = categories.length > 0 ? categories : INITIAL_CATEGORIES;
+        for (const cat of currentCats) {
+          await supabase.from('categories').upsert(mapCategoryToDb(cat));
+        }
+
+        // 2. Fetch categories from Supabase
         const { data: catData, error: catError } = await supabase
           .from('categories')
           .select('*')
@@ -108,25 +114,34 @@ export function useTaskManager() {
 
         if (!catError && catData && catData.length > 0 && isSubscribed) {
           setCategories(catData.map(mapDbCategoryToCategory));
-        } else if (catData && catData.length === 0) {
-          // Initial seed if empty
-          for (const cat of INITIAL_CATEGORIES) {
-            await supabase.from('categories').upsert(mapCategoryToDb(cat));
-          }
         }
 
-        // Fetch tasks
+        // 3. Check tasks table in Supabase
         const { data: taskData, error: taskError } = await supabase
           .from('tasks')
           .select('*')
           .order('created_at', { ascending: false });
 
         if (!taskError && taskData && taskData.length > 0 && isSubscribed) {
-          setTasks(taskData.map(mapDbTaskToTask));
-        } else if (taskData && taskData.length === 0) {
-          // Initial seed if empty
-          for (const task of INITIAL_TASKS) {
+          // If remote tasks exist, load them and merge with any existing local tasks
+          const remoteTasks = taskData.map(mapDbTaskToTask);
+          const remoteIds = new Set(remoteTasks.map(t => t.id));
+          
+          // If there are local tasks not yet in remote, push them automatically
+          const localTasksToPush = tasks.filter(t => !remoteIds.has(t.id));
+          for (const localTask of localTasksToPush) {
+            await supabase.from('tasks').upsert(mapTaskToDb(localTask));
+          }
+
+          setTasks([...localTasksToPush, ...remoteTasks]);
+        } else {
+          // Supabase tasks table is empty: automatically push all current tasks
+          const initialTasksToPush = tasks.length > 0 ? tasks : INITIAL_TASKS;
+          for (const task of initialTasksToPush) {
             await supabase.from('tasks').upsert(mapTaskToDb(task));
+          }
+          if (isSubscribed) {
+            setTasks(initialTasksToPush);
           }
         }
 
@@ -134,7 +149,7 @@ export function useTaskManager() {
           setLastSyncedAt(new Date());
         }
       } catch (err) {
-        console.warn('Supabase fetch error:', err);
+        console.warn('Supabase automatic sync error:', err);
       } finally {
         if (isSubscribed) {
           setIsSyncing(false);
@@ -236,14 +251,26 @@ export function useTaskManager() {
 
     setTasks(prev => [newTask, ...prev]);
 
-    // Push to Supabase if connected
+    // Push automatically to Supabase if connected
     const supabase = getSupabase();
     if (supabase) {
-      supabase.from('tasks').insert(mapTaskToDb(newTask)).then();
+      // Ensure category exists in database first
+      const cat = categories.find(c => c.id === newTask.categoryId);
+      if (cat) {
+        supabase.from('categories').upsert(mapCategoryToDb(cat)).then(() => {
+          supabase.from('tasks').upsert(mapTaskToDb(newTask)).then(({ error }) => {
+            if (error) console.error('Auto-sync insert task failed:', error);
+          });
+        });
+      } else {
+        supabase.from('tasks').upsert(mapTaskToDb(newTask)).then(({ error }) => {
+          if (error) console.error('Auto-sync insert task failed:', error);
+        });
+      }
     }
 
     return newTask;
-  }, []);
+  }, [categories]);
 
   const updateTask = useCallback((id: string, updates: Partial<Task>) => {
     let updatedTaskObj: Task | null = null;
@@ -264,7 +291,9 @@ export function useTaskManager() {
 
     const supabase = getSupabase();
     if (supabase && updatedTaskObj) {
-      supabase.from('tasks').update(mapTaskToDb(updatedTaskObj)).eq('id', id).then();
+      supabase.from('tasks').upsert(mapTaskToDb(updatedTaskObj)).then(({ error }) => {
+        if (error) console.error('Auto-sync update task failed:', error);
+      });
     }
   }, []);
 
@@ -272,7 +301,9 @@ export function useTaskManager() {
     setTasks(prev => prev.filter(t => t.id !== id));
     const supabase = getSupabase();
     if (supabase) {
-      supabase.from('tasks').delete().eq('id', id).then();
+      supabase.from('tasks').delete().eq('id', id).then(({ error }) => {
+        if (error) console.error('Auto-sync delete task failed:', error);
+      });
     }
   }, []);
 
@@ -300,7 +331,9 @@ export function useTaskManager() {
 
     const supabase = getSupabase();
     if (supabase && updatedTaskObj) {
-      supabase.from('tasks').update(mapTaskToDb(updatedTaskObj)).eq('id', id).then();
+      supabase.from('tasks').upsert(mapTaskToDb(updatedTaskObj)).then(({ error }) => {
+        if (error) console.error('Auto-sync toggle task failed:', error);
+      });
     }
   }, []);
 
@@ -420,7 +453,9 @@ export function useTaskManager() {
 
     const supabase = getSupabase();
     if (supabase && updatedTaskObj) {
-      supabase.from('tasks').update(mapTaskToDb(updatedTaskObj)).eq('id', taskId).then();
+      supabase.from('tasks').upsert(mapTaskToDb(updatedTaskObj)).then(({ error }) => {
+        if (error) console.error('Auto-sync toggle subtask failed:', error);
+      });
     }
   }, []);
 
@@ -448,7 +483,9 @@ export function useTaskManager() {
 
     const supabase = getSupabase();
     if (supabase && updatedTaskObj) {
-      supabase.from('tasks').update(mapTaskToDb(updatedTaskObj)).eq('id', taskId).then();
+      supabase.from('tasks').upsert(mapTaskToDb(updatedTaskObj)).then(({ error }) => {
+        if (error) console.error('Auto-sync add subtask failed:', error);
+      });
     }
   }, []);
 
@@ -470,7 +507,9 @@ export function useTaskManager() {
 
     const supabase = getSupabase();
     if (supabase && updatedTaskObj) {
-      supabase.from('tasks').update(mapTaskToDb(updatedTaskObj)).eq('id', taskId).then();
+      supabase.from('tasks').upsert(mapTaskToDb(updatedTaskObj)).then(({ error }) => {
+        if (error) console.error('Auto-sync delete subtask failed:', error);
+      });
     }
   }, []);
 
@@ -494,7 +533,9 @@ export function useTaskManager() {
 
     const supabase = getSupabase();
     if (supabase && updatedTaskObj) {
-      supabase.from('tasks').update(mapTaskToDb(updatedTaskObj)).eq('id', taskId).then();
+      supabase.from('tasks').upsert(mapTaskToDb(updatedTaskObj)).then(({ error }) => {
+        if (error) console.error('Auto-sync update subtask title failed:', error);
+      });
     }
   }, []);
 
@@ -509,7 +550,9 @@ export function useTaskManager() {
     setCategories(prev => [...prev, newCat]);
     const supabase = getSupabase();
     if (supabase) {
-      supabase.from('categories').insert(mapCategoryToDb(newCat)).then();
+      supabase.from('categories').upsert(mapCategoryToDb(newCat)).then(({ error }) => {
+        if (error) console.error('Auto-sync add category failed:', error);
+      });
     }
     return newCat;
   }, []);
@@ -529,7 +572,9 @@ export function useTaskManager() {
 
     const supabase = getSupabase();
     if (supabase && updatedCatObj) {
-      supabase.from('categories').update(mapCategoryToDb(updatedCatObj)).eq('id', id).then();
+      supabase.from('categories').upsert(mapCategoryToDb(updatedCatObj)).then(({ error }) => {
+        if (error) console.error('Auto-sync update category failed:', error);
+      });
     }
   }, []);
 
@@ -575,7 +620,9 @@ export function useTaskManager() {
 
     const supabase = getSupabase();
     if (supabase && updatedCatObj) {
-      supabase.from('categories').update(mapCategoryToDb(updatedCatObj)).eq('id', categoryId).then();
+      supabase.from('categories').upsert(mapCategoryToDb(updatedCatObj)).then(({ error }) => {
+        if (error) console.error('Auto-sync add subcategory failed:', error);
+      });
     }
     return newSub;
   }, []);
@@ -600,7 +647,9 @@ export function useTaskManager() {
 
     const supabase = getSupabase();
     if (supabase && updatedCatObj) {
-      supabase.from('categories').update(mapCategoryToDb(updatedCatObj)).eq('id', categoryId).then();
+      supabase.from('categories').upsert(mapCategoryToDb(updatedCatObj)).then(({ error }) => {
+        if (error) console.error('Auto-sync update subcategory failed:', error);
+      });
     }
   }, []);
 
@@ -632,7 +681,9 @@ export function useTaskManager() {
 
     const supabase = getSupabase();
     if (supabase && updatedCatObj) {
-      supabase.from('categories').update(mapCategoryToDb(updatedCatObj)).eq('id', categoryId).then();
+      supabase.from('categories').upsert(mapCategoryToDb(updatedCatObj)).then(({ error }) => {
+        if (error) console.error('Auto-sync delete subcategory failed:', error);
+      });
       supabase.from('tasks').update({ sub_category_id: null }).eq('sub_category_id', subCategoryId).then();
     }
   }, []);
