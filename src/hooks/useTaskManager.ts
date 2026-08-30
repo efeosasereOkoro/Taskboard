@@ -120,6 +120,38 @@ export function useTaskManager() {
     );
   }, []);
 
+  // Reorder task within a column or across columns
+  const reorderTask = useCallback((activeId: string, targetId: string | null, targetTiming?: Timing, position: 'before' | 'after' = 'before') => {
+    setTasks(prev => {
+      const activeIndex = prev.findIndex(t => t.id === activeId);
+      if (activeIndex === -1) return prev;
+
+      const activeTask = { ...prev[activeIndex] };
+      if (targetTiming && activeTask.timing !== targetTiming) {
+        activeTask.timing = targetTiming;
+      }
+
+      const filtered = prev.filter(t => t.id !== activeId);
+
+      if (!targetId) {
+        // Moving to the top or bottom of a target timing column
+        if (position === 'before') {
+          return [activeTask, ...filtered];
+        } else {
+          return [...filtered, activeTask];
+        }
+      }
+
+      const targetIndex = filtered.findIndex(t => t.id === targetId);
+      if (targetIndex === -1) {
+        return [activeTask, ...filtered];
+      }
+
+      const insertIndex = position === 'after' ? targetIndex + 1 : targetIndex;
+      return [...filtered.slice(0, insertIndex), activeTask, ...filtered.slice(insertIndex)];
+    });
+  }, []);
+
   // Subtask Operations
   const toggleSubTask = useCallback((taskId: string, subtaskId: string) => {
     setTasks(prev =>
@@ -287,6 +319,7 @@ export function useTaskManager() {
     deleteTask,
     toggleTaskComplete,
     setTaskTiming,
+    reorderTask,
     toggleSubTask,
     addSubTask,
     deleteSubTask,

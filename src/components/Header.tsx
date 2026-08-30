@@ -39,9 +39,9 @@ export const Header: React.FC<HeaderProps> = ({
   timingCounts,
   showCompleted,
   onToggleShowCompleted,
-  focusMode,
+  focusMode = false,
   onToggleFocusMode,
-  visibleColumns,
+  visibleColumns = { now: true, next: true, later: true },
   onToggleColumnVisibility,
 }) => {
   const currentCategory = categories.find(c => c.id === selectedCategoryId);

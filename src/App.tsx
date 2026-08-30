@@ -5,7 +5,7 @@ import { TimingColumn } from './components/TimingColumn';
 import { TaskModal } from './components/TaskModal';
 import { CategoryManagerModal } from './components/CategoryManagerModal';
 import { Task, Timing, Priority } from './types';
-import { Clock, Calendar, Compass, Plus, CheckCircle2, Sparkles, Filter } from 'lucide-react';
+import { Plus, Filter, Sparkles } from 'lucide-react';
 
 export default function App() {
   const {
@@ -16,6 +16,7 @@ export default function App() {
     deleteTask,
     toggleTaskComplete,
     setTaskTiming,
+    reorderTask,
     toggleSubTask,
     addSubTask,
     deleteSubTask,
@@ -35,6 +36,14 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showCompleted, setShowCompleted] = useState(true);
 
+  // Column Visibility & Focus Mode
+  const [focusMode, setFocusMode] = useState(false);
+  const [visibleColumns, setVisibleColumns] = useState<{ now: boolean; next: boolean; later: boolean }>({
+    now: true,
+    next: true,
+    later: true,
+  });
+
   // Mobile active tab (Now / Next / Later / All)
   const [mobileTab, setMobileTab] = useState<Timing | 'all'>('all');
 
@@ -48,6 +57,35 @@ export default function App() {
   const handleSelectCategory = (catId: string | null, subId: string | null = null) => {
     setSelectedCategoryId(catId);
     setSelectedSubCategoryId(subId);
+  };
+
+  const handleToggleFocusMode = () => {
+    setFocusMode(prev => {
+      const nextState = !prev;
+      if (nextState) {
+        setVisibleColumns({ now: true, next: false, later: false });
+      } else {
+        setVisibleColumns({ now: true, next: true, later: true });
+      }
+      return nextState;
+    });
+  };
+
+  const handleToggleColumnVisibility = (column: 'next' | 'later') => {
+    setVisibleColumns(prev => {
+      const updated = { ...prev, [column]: !prev[column] };
+      if (!updated.next && !updated.later) {
+        setFocusMode(true);
+      } else {
+        setFocusMode(false);
+      }
+      return updated;
+    });
+  };
+
+  const handleShowAllColumns = () => {
+    setFocusMode(false);
+    setVisibleColumns({ now: true, next: true, later: true });
   };
 
   // Filtered Tasks calculation
@@ -129,6 +167,26 @@ export default function App() {
     setIsTaskModalOpen(true);
   };
 
+  // Prioritize to top / bottom
+  const handleMoveToTop = (taskId: string) => {
+    reorderTask(taskId, null, undefined, 'before');
+  };
+
+  const handleMoveToBottom = (taskId: string) => {
+    reorderTask(taskId, null, undefined, 'after');
+  };
+
+  // Grid column calculation
+  const visibleCount = (visibleColumns.now ? 1 : 0) + 
+    ((!focusMode && visibleColumns.next) ? 1 : 0) + 
+    ((!focusMode && visibleColumns.later) ? 1 : 0);
+
+  const gridColsClass = visibleCount === 1 
+    ? 'grid-cols-1 max-w-2xl mx-auto' 
+    : visibleCount === 2 
+    ? 'grid-cols-1 md:grid-cols-2 max-w-5xl mx-auto' 
+    : 'grid-cols-1 md:grid-cols-3';
+
   const currentCategoryObj = categories.find(c => c.id === selectedCategoryId);
   const currentSubCategoryObj = currentCategoryObj?.subcategories.find(s => s.id === selectedSubCategoryId);
 
@@ -148,6 +206,10 @@ export default function App() {
         timingCounts={timingCounts}
         showCompleted={showCompleted}
         onToggleShowCompleted={() => setShowCompleted(!showCompleted)}
+        focusMode={focusMode}
+        onToggleFocusMode={handleToggleFocusMode}
+        visibleColumns={visibleColumns}
+        onToggleColumnVisibility={handleToggleColumnVisibility}
       />
 
       {/* Main Content Area */}
@@ -181,6 +243,27 @@ export default function App() {
               className="text-[#1868F2] hover:underline font-semibold"
             >
               Clear filters
+            </button>
+          </div>
+        )}
+
+        {/* Focus Mode active banner */}
+        {focusMode && (
+          <div className="mb-5 bg-gradient-to-r from-blue-500/10 via-indigo-500/10 to-amber-500/10 border border-blue-200/80 rounded-2xl p-4 flex items-center justify-between shadow-xs">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-[#1868F2] text-white flex items-center justify-center shadow-xs">
+                <Sparkles className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-neutral-900">Focus Mode Active</h3>
+                <p className="text-xs text-neutral-600">Showing only &ldquo;Now&rdquo; tasks to help you get things done this week without distractions.</p>
+              </div>
+            </div>
+            <button
+              onClick={handleShowAllColumns}
+              className="px-3 py-1.5 text-xs font-semibold text-[#1868F2] bg-white border border-blue-200 hover:bg-blue-50 rounded-xl transition-all shadow-2xs"
+            >
+              Show Next & Later
             </button>
           </div>
         )}
@@ -224,79 +307,98 @@ export default function App() {
           </button>
         </div>
 
-        {/* 3-Column Timing Board (Now / Next / Later) */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 lg:gap-6 items-start">
+        {/* Timing Board (Now / Next / Later with dynamic grid and focus hiding) */}
+        <div className={`grid ${gridColsClass} gap-5 lg:gap-6 items-start transition-all duration-300`}>
           {/* NOW: This week */}
-          <div className={`${mobileTab === 'all' || mobileTab === 'now' ? 'block' : 'hidden md:block'}`}>
-            <TimingColumn
-              timing="now"
-              title="Now"
-              subtitle="This week"
-              badgeColor="bg-blue-50 text-[#1868F2] border-blue-200"
-              tasks={nowTasks}
-              categories={categories}
-              selectedCategoryId={selectedCategoryId}
-              selectedSubCategoryId={selectedSubCategoryId}
-              onToggleComplete={toggleTaskComplete}
-              onToggleSubTask={toggleSubTask}
-              onAddSubTask={addSubTask}
-              onDeleteSubTask={deleteSubTask}
-              onUpdateSubTask={updateSubTaskTitle}
-              onSetTiming={setTaskTiming}
-              onSetPriority={(id, p) => updateTask(id, { priority: p })}
-              onEditTask={handleEditTask}
-              onDeleteTask={deleteTask}
-              onQuickAddTask={handleQuickAdd}
-            />
-          </div>
+          {visibleColumns.now && (
+            <div className={`${mobileTab === 'all' || mobileTab === 'now' ? 'block' : 'hidden md:block'}`}>
+              <TimingColumn
+                timing="now"
+                title="Now"
+                subtitle="This week"
+                badgeColor="bg-blue-50 text-[#1868F2] border-blue-200"
+                tasks={nowTasks}
+                categories={categories}
+                selectedCategoryId={selectedCategoryId}
+                selectedSubCategoryId={selectedSubCategoryId}
+                onToggleComplete={toggleTaskComplete}
+                onToggleSubTask={toggleSubTask}
+                onAddSubTask={addSubTask}
+                onDeleteSubTask={deleteSubTask}
+                onUpdateSubTask={updateSubTaskTitle}
+                onSetTiming={setTaskTiming}
+                onSetPriority={(id, p) => updateTask(id, { priority: p })}
+                onEditTask={handleEditTask}
+                onDeleteTask={deleteTask}
+                onQuickAddTask={handleQuickAdd}
+                onReorderTask={reorderTask}
+                onMoveToTop={handleMoveToTop}
+                onMoveToBottom={handleMoveToBottom}
+                isFocusMode={focusMode}
+                onToggleFocus={handleToggleFocusMode}
+              />
+            </div>
+          )}
 
           {/* NEXT: From next week */}
-          <div className={`${mobileTab === 'all' || mobileTab === 'next' ? 'block' : 'hidden md:block'}`}>
-            <TimingColumn
-              timing="next"
-              title="Next"
-              subtitle="From next week"
-              badgeColor="bg-indigo-50 text-indigo-700 border-indigo-200"
-              tasks={nextTasks}
-              categories={categories}
-              selectedCategoryId={selectedCategoryId}
-              selectedSubCategoryId={selectedSubCategoryId}
-              onToggleComplete={toggleTaskComplete}
-              onToggleSubTask={toggleSubTask}
-              onAddSubTask={addSubTask}
-              onDeleteSubTask={deleteSubTask}
-              onUpdateSubTask={updateSubTaskTitle}
-              onSetTiming={setTaskTiming}
-              onSetPriority={(id, p) => updateTask(id, { priority: p })}
-              onEditTask={handleEditTask}
-              onDeleteTask={deleteTask}
-              onQuickAddTask={handleQuickAdd}
-            />
-          </div>
+          {!focusMode && visibleColumns.next && (
+            <div className={`${mobileTab === 'all' || mobileTab === 'next' ? 'block' : 'hidden md:block'}`}>
+              <TimingColumn
+                timing="next"
+                title="Next"
+                subtitle="From next week"
+                badgeColor="bg-indigo-50 text-indigo-700 border-indigo-200"
+                tasks={nextTasks}
+                categories={categories}
+                selectedCategoryId={selectedCategoryId}
+                selectedSubCategoryId={selectedSubCategoryId}
+                onToggleComplete={toggleTaskComplete}
+                onToggleSubTask={toggleSubTask}
+                onAddSubTask={addSubTask}
+                onDeleteSubTask={deleteSubTask}
+                onUpdateSubTask={updateSubTaskTitle}
+                onSetTiming={setTaskTiming}
+                onSetPriority={(id, p) => updateTask(id, { priority: p })}
+                onEditTask={handleEditTask}
+                onDeleteTask={deleteTask}
+                onQuickAddTask={handleQuickAdd}
+                onReorderTask={reorderTask}
+                onMoveToTop={handleMoveToTop}
+                onMoveToBottom={handleMoveToBottom}
+                onHideColumn={() => handleToggleColumnVisibility('next')}
+              />
+            </div>
+          )}
 
           {/* LATER: From next month onwards */}
-          <div className={`${mobileTab === 'all' || mobileTab === 'later' ? 'block' : 'hidden md:block'}`}>
-            <TimingColumn
-              timing="later"
-              title="Later"
-              subtitle="From next month onwards"
-              badgeColor="bg-neutral-100 text-neutral-700 border-neutral-200"
-              tasks={laterTasks}
-              categories={categories}
-              selectedCategoryId={selectedCategoryId}
-              selectedSubCategoryId={selectedSubCategoryId}
-              onToggleComplete={toggleTaskComplete}
-              onToggleSubTask={toggleSubTask}
-              onAddSubTask={addSubTask}
-              onDeleteSubTask={deleteSubTask}
-              onUpdateSubTask={updateSubTaskTitle}
-              onSetTiming={setTaskTiming}
-              onSetPriority={(id, p) => updateTask(id, { priority: p })}
-              onEditTask={handleEditTask}
-              onDeleteTask={deleteTask}
-              onQuickAddTask={handleQuickAdd}
-            />
-          </div>
+          {!focusMode && visibleColumns.later && (
+            <div className={`${mobileTab === 'all' || mobileTab === 'later' ? 'block' : 'hidden md:block'}`}>
+              <TimingColumn
+                timing="later"
+                title="Later"
+                subtitle="From next month onwards"
+                badgeColor="bg-neutral-100 text-neutral-700 border-neutral-200"
+                tasks={laterTasks}
+                categories={categories}
+                selectedCategoryId={selectedCategoryId}
+                selectedSubCategoryId={selectedSubCategoryId}
+                onToggleComplete={toggleTaskComplete}
+                onToggleSubTask={toggleSubTask}
+                onAddSubTask={addSubTask}
+                onDeleteSubTask={deleteSubTask}
+                onUpdateSubTask={updateSubTaskTitle}
+                onSetTiming={setTaskTiming}
+                onSetPriority={(id, p) => updateTask(id, { priority: p })}
+                onEditTask={handleEditTask}
+                onDeleteTask={deleteTask}
+                onQuickAddTask={handleQuickAdd}
+                onReorderTask={reorderTask}
+                onMoveToTop={handleMoveToTop}
+                onMoveToBottom={handleMoveToBottom}
+                onHideColumn={() => handleToggleColumnVisibility('later')}
+              />
+            </div>
+          )}
         </div>
       </main>
 
