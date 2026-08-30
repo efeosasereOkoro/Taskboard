@@ -32,6 +32,7 @@ export interface Task {
   subtasks: SubTask[];
   createdAt: number;
   completedAt?: number;
+  order?: number;
 }
 
 export type ViewMode = 'board' | 'list';

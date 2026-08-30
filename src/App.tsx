@@ -4,6 +4,8 @@ import { Header } from './components/Header';
 import { TimingColumn } from './components/TimingColumn';
 import { TaskModal } from './components/TaskModal';
 import { CategoryManagerModal } from './components/CategoryManagerModal';
+import { WhatsNewModal } from './components/WhatsNewModal';
+import { SupabaseModal } from './components/SupabaseModal';
 import { Task, Timing, Priority } from './types';
 import { Plus, Filter, Sparkles } from 'lucide-react';
 
@@ -11,12 +13,17 @@ export default function App() {
   const {
     tasks,
     categories,
+    isCloudConnected,
+    isSyncing,
+    lastSyncedAt,
     addTask,
     updateTask,
     deleteTask,
     toggleTaskComplete,
     setTaskTiming,
     reorderTask,
+    moveTaskToTop,
+    moveTaskToBottom,
     toggleSubTask,
     addSubTask,
     deleteSubTask,
@@ -52,6 +59,8 @@ export default function App() {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [initialModalTiming, setInitialModalTiming] = useState<Timing>('now');
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [isWhatsNewOpen, setIsWhatsNewOpen] = useState(false);
+  const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState(false);
 
   // Category selection handler
   const handleSelectCategory = (catId: string | null, subId: string | null = null) => {
@@ -210,6 +219,10 @@ export default function App() {
         onToggleFocusMode={handleToggleFocusMode}
         visibleColumns={visibleColumns}
         onToggleColumnVisibility={handleToggleColumnVisibility}
+        onOpenWhatsNew={() => setIsWhatsNewOpen(true)}
+        onOpenSupabaseModal={() => setIsSupabaseModalOpen(true)}
+        isCloudConnected={isCloudConnected}
+        isSyncing={isSyncing}
       />
 
       {/* Main Content Area */}
@@ -441,6 +454,25 @@ export default function App() {
         onUpdateSubCategory={updateSubCategory}
         onDeleteSubCategory={deleteSubCategory}
         onResetDefaults={resetToDefaults}
+      />
+
+      {/* What's New Modal */}
+      <WhatsNewModal
+        isOpen={isWhatsNewOpen}
+        onClose={() => setIsWhatsNewOpen(false)}
+        onActivateFocusMode={() => {
+          handleToggleFocusMode();
+          setIsWhatsNewOpen(false);
+        }}
+      />
+
+      {/* Supabase Connection Modal */}
+      <SupabaseModal
+        isOpen={isSupabaseModalOpen}
+        onClose={() => setIsSupabaseModalOpen(false)}
+        isCloudConnected={isCloudConnected}
+        isSyncing={isSyncing}
+        lastSyncedAt={lastSyncedAt}
       />
     </div>
   );

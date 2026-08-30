@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, Search, FolderKanban, RotateCcw, CheckCircle2, SlidersHorizontal, Sparkles, Eye, EyeOff, Layers } from 'lucide-react';
+import { Plus, Search, FolderKanban, RotateCcw, CheckCircle2, SlidersHorizontal, Sparkles, Eye, EyeOff, Layers, Database } from 'lucide-react';
 import { Category, Timing } from '../types';
 
 interface HeaderProps {
@@ -24,6 +24,10 @@ interface HeaderProps {
   onToggleFocusMode: () => void;
   visibleColumns: { now: boolean; next: boolean; later: boolean };
   onToggleColumnVisibility: (col: 'next' | 'later') => void;
+  onOpenWhatsNew?: () => void;
+  onOpenSupabaseModal?: () => void;
+  isCloudConnected?: boolean;
+  isSyncing?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -43,6 +47,10 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleFocusMode,
   visibleColumns = { now: true, next: true, later: true },
   onToggleColumnVisibility,
+  onOpenWhatsNew,
+  onOpenSupabaseModal,
+  isCloudConnected = false,
+  isSyncing = false,
 }) => {
   const currentCategory = categories.find(c => c.id === selectedCategoryId);
 
@@ -64,9 +72,13 @@ export const Header: React.FC<HeaderProps> = ({
             <div className="flex flex-col">
               <div className="flex items-center gap-2">
                 <span className="font-bold text-lg tracking-tight text-neutral-900">Taskboard</span>
-                <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-blue-50 text-[#1868F2] border border-blue-100">
-                  Minimal
-                </span>
+                <button
+                  onClick={onOpenWhatsNew}
+                  className="text-[10px] font-bold tracking-wider px-2 py-0.5 rounded-full bg-blue-50 hover:bg-blue-100 text-[#1868F2] border border-blue-200 transition-colors flex items-center gap-1 cursor-pointer"
+                  title="Click to view What's New in v1.2.0"
+                >
+                  <span>v1.2.0</span>
+                </button>
               </div>
             </div>
           </div>
@@ -97,18 +109,34 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Action Buttons */}
           <div className="flex items-center gap-2">
+            {/* Supabase Cloud Sync Status Button */}
+            <button
+              id="supabase-status-btn"
+              onClick={onOpenSupabaseModal}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-lg border transition-all cursor-pointer ${
+                isCloudConnected
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                  : 'bg-neutral-50 text-neutral-600 border-neutral-200 hover:bg-neutral-100'
+              }`}
+              title={isCloudConnected ? 'Supabase Connected (Live PostgreSQL Sync)' : 'Click to connect to Supabase'}
+            >
+              <Database className={`w-3.5 h-3.5 ${isCloudConnected ? 'text-emerald-600' : 'text-neutral-400'}`} />
+              <span className="hidden lg:inline">{isCloudConnected ? 'Supabase Live' : 'Supabase'}</span>
+              <span className={`w-2 h-2 rounded-full ${isCloudConnected ? 'bg-emerald-500 animate-pulse' : 'bg-neutral-300'}`} />
+            </button>
+
             {/* Focus Mode Highlight Button */}
             <button
               id="focus-mode-main-toggle"
               onClick={onToggleFocusMode}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold rounded-lg transition-all ${
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-bold rounded-lg transition-all cursor-pointer ${
                 focusMode
-                  ? 'bg-amber-500 text-white shadow-sm ring-2 ring-amber-400/40'
-                  : 'text-neutral-700 bg-neutral-100 hover:bg-neutral-200/80 active:bg-neutral-200'
+                  ? 'bg-amber-500 text-white shadow-md ring-2 ring-amber-400/40'
+                  : 'text-amber-900 bg-amber-100/90 hover:bg-amber-200 border border-amber-300/80'
               }`}
-              title={focusMode ? 'Exit Focus Mode (Show Next & Later)' : 'Focus Mode: Only show NOW tasks'}
+              title={focusMode ? 'Exit Focus Mode (Show Next & Later)' : 'Click to activate Focus Mode (Hides Next & Later)'}
             >
-              <Sparkles className={`w-4 h-4 ${focusMode ? 'text-white fill-white' : 'text-amber-500'}`} />
+              <Sparkles className={`w-4 h-4 ${focusMode ? 'text-white fill-white' : 'text-amber-600 fill-amber-500'}`} />
               <span className="hidden sm:inline">{focusMode ? 'Focus: ON' : 'Focus Mode'}</span>
             </button>
 
