@@ -16,6 +16,7 @@ export default function App() {
     isCloudConnected,
     isSyncing,
     lastSyncedAt,
+    manualSyncToSupabase,
     addTask,
     updateTask,
     deleteTask,
@@ -473,6 +474,9 @@ export default function App() {
         isCloudConnected={isCloudConnected}
         isSyncing={isSyncing}
         lastSyncedAt={lastSyncedAt}
+        tasks={tasks}
+        categories={categories}
+        onManualSync={manualSyncToSupabase}
       />
     </div>
   );

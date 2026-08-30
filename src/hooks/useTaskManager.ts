@@ -646,12 +646,68 @@ export function useTaskManager() {
     } catch {}
   }, []);
 
+  const manualSyncToSupabase = useCallback(async (): Promise<{ success: boolean; message: string }> => {
+    const supabase = getSupabase();
+    if (!supabase) {
+      setIsCloudConnected(false);
+      return {
+        success: false,
+        message: 'Supabase is not configured yet. Please enter your Project URL and Anon Key.',
+      };
+    }
+
+    try {
+      setIsSyncing(true);
+
+      // 1. Upsert all categories
+      const currentCats = categories.length > 0 ? categories : INITIAL_CATEGORIES;
+      for (const cat of currentCats) {
+        const { error: catErr } = await supabase
+          .from('categories')
+          .upsert(mapCategoryToDb(cat));
+        if (catErr) {
+          console.error('Error syncing category to Supabase:', catErr);
+        }
+      }
+
+      // 2. Upsert all tasks
+      const currentTasks = tasks.length > 0 ? tasks : INITIAL_TASKS;
+      let syncedCount = 0;
+      for (const task of currentTasks) {
+        const { error: taskErr } = await supabase
+          .from('tasks')
+          .upsert(mapTaskToDb(task));
+        if (taskErr) {
+          console.error('Error syncing task to Supabase:', taskErr);
+        } else {
+          syncedCount++;
+        }
+      }
+
+      setIsCloudConnected(true);
+      setLastSyncedAt(new Date());
+      return {
+        success: true,
+        message: `Successfully synced ${currentCats.length} categories and ${syncedCount} tasks to Supabase!`,
+      };
+    } catch (err: any) {
+      console.error('Manual sync failed:', err);
+      return {
+        success: false,
+        message: `Sync failed: ${err.message || String(err)}`,
+      };
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [categories, tasks]);
+
   return {
     tasks,
     categories,
     isCloudConnected,
     isSyncing,
     lastSyncedAt,
+    manualSyncToSupabase,
     addTask,
     updateTask,
     deleteTask,
