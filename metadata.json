@@ -1,0 +1,6 @@
+{
+  "name": "Taskboard - Minimal Task Manager",
+  "description": "A minimalist, fast task manager focused on Now, Next, and Later priorities with nested categories and subtasks.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
