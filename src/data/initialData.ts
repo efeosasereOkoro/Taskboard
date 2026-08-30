@@ -79,6 +79,20 @@ export const INITIAL_TASKS: Task[] = [
     subtasks: [],
     createdAt: Date.now() - 86400000 * 3,
   },
+  {
+    id: 'task-life-group-flyer',
+    title: 'Share Life group flyer and survey link to the life group google chat group',
+    description: 'Post flyer asset and survey form link into the Google Chat channel for the Life Group.',
+    completed: false,
+    timing: 'now',
+    priority: 'high',
+    categoryId: 'cat-personal',
+    subtasks: [
+      { id: 'subtask-lg-1', title: 'Attach flyer image asset', completed: false },
+      { id: 'subtask-lg-2', title: 'Paste survey form link', completed: false },
+    ],
+    createdAt: Date.now(),
+  },
 
   // NEXT - From next week
   {

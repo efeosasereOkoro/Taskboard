@@ -155,6 +155,22 @@ alter publication supabase_realtime add table public.tasks;`;
               </div>
             </div>
           </div>
+
+          {/* Database Row Verification & Live Query */}
+          <div className="p-3.5 bg-neutral-900 text-neutral-200 rounded-xl space-y-2 border border-neutral-800">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-white flex items-center gap-1.5 text-xs">
+                <Database className="w-3.5 h-3.5 text-blue-400" />
+                <span>Supabase Live Sync Check</span>
+              </span>
+              <span className="text-[10px] px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 font-mono">
+                table: public.tasks
+              </span>
+            </div>
+            <p className="text-[11px] text-neutral-400 leading-relaxed">
+              When you add or update any task in Taskboard, the record is immediately synced to your Supabase PostgreSQL <code className="text-blue-300 font-mono">public.tasks</code> table.
+            </p>
+          </div>
         </div>
 
         {/* Footer */}
