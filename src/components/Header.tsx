@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, Search, FolderKanban, RotateCcw, CheckCircle2, SlidersHorizontal } from 'lucide-react';
+import { Plus, Search, FolderKanban, RotateCcw, CheckCircle2, SlidersHorizontal, Sparkles, Eye, EyeOff, Layers } from 'lucide-react';
 import { Category, Timing } from '../types';
 
 interface HeaderProps {
@@ -20,6 +20,10 @@ interface HeaderProps {
   };
   showCompleted: boolean;
   onToggleShowCompleted: () => void;
+  focusMode: boolean;
+  onToggleFocusMode: () => void;
+  visibleColumns: { now: boolean; next: boolean; later: boolean };
+  onToggleColumnVisibility: (col: 'next' | 'later') => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -35,6 +39,10 @@ export const Header: React.FC<HeaderProps> = ({
   timingCounts,
   showCompleted,
   onToggleShowCompleted,
+  focusMode,
+  onToggleFocusMode,
+  visibleColumns,
+  onToggleColumnVisibility,
 }) => {
   const currentCategory = categories.find(c => c.id === selectedCategoryId);
 
@@ -89,6 +97,21 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Action Buttons */}
           <div className="flex items-center gap-2">
+            {/* Focus Mode Highlight Button */}
+            <button
+              id="focus-mode-main-toggle"
+              onClick={onToggleFocusMode}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold rounded-lg transition-all ${
+                focusMode
+                  ? 'bg-amber-500 text-white shadow-sm ring-2 ring-amber-400/40'
+                  : 'text-neutral-700 bg-neutral-100 hover:bg-neutral-200/80 active:bg-neutral-200'
+              }`}
+              title={focusMode ? 'Exit Focus Mode (Show Next & Later)' : 'Focus Mode: Only show NOW tasks'}
+            >
+              <Sparkles className={`w-4 h-4 ${focusMode ? 'text-white fill-white' : 'text-amber-500'}`} />
+              <span className="hidden sm:inline">{focusMode ? 'Focus: ON' : 'Focus Mode'}</span>
+            </button>
+
             <button
               id="open-categories-btn"
               onClick={onOpenCategoryManager}
@@ -110,7 +133,7 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Category Filter Bar */}
+        {/* Category Filter Bar & Column Toggles */}
         <div className="py-2.5 flex items-center justify-between gap-3 overflow-x-auto no-scrollbar border-t border-neutral-100">
           <div className="flex items-center gap-1.5 flex-nowrap">
             <button
@@ -148,8 +171,39 @@ export const Header: React.FC<HeaderProps> = ({
             })}
           </div>
 
-          {/* Toggle completed visibility */}
+          {/* Quick Visibility Controls for Next & Later + Completed */}
           <div className="flex items-center gap-2 shrink-0">
+            {/* Direct Hide / Show Pills */}
+            <div className="hidden sm:flex items-center gap-1 bg-neutral-100/90 p-1 rounded-lg border border-neutral-200/60 text-xs font-medium">
+              <span className="text-[10px] text-neutral-400 uppercase font-bold px-1">Columns:</span>
+              <button
+                id="toggle-next-column-btn"
+                onClick={() => onToggleColumnVisibility('next')}
+                className={`px-2 py-0.5 rounded-md flex items-center gap-1 transition-all ${
+                  visibleColumns.next && !focusMode
+                    ? 'bg-white text-indigo-700 font-semibold shadow-2xs'
+                    : 'text-neutral-400 line-through bg-transparent hover:text-neutral-600'
+                }`}
+                title="Click to hide or show the 'Next' column"
+              >
+                {visibleColumns.next && !focusMode ? <Eye className="w-3 h-3 text-indigo-600" /> : <EyeOff className="w-3 h-3 text-neutral-400" />}
+                <span>Next ({timingCounts.next})</span>
+              </button>
+              <button
+                id="toggle-later-column-btn"
+                onClick={() => onToggleColumnVisibility('later')}
+                className={`px-2 py-0.5 rounded-md flex items-center gap-1 transition-all ${
+                  visibleColumns.later && !focusMode
+                    ? 'bg-white text-neutral-800 font-semibold shadow-2xs'
+                    : 'text-neutral-400 line-through bg-transparent hover:text-neutral-600'
+                }`}
+                title="Click to hide or show the 'Later' column"
+              >
+                {visibleColumns.later && !focusMode ? <Eye className="w-3 h-3 text-neutral-600" /> : <EyeOff className="w-3 h-3 text-neutral-400" />}
+                <span>Later ({timingCounts.later})</span>
+              </button>
+            </div>
+
             <button
               id="toggle-completed-visibility"
               onClick={onToggleShowCompleted}
