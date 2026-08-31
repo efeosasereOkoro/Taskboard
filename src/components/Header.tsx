@@ -13,6 +13,7 @@ interface HeaderProps {
   onOpenCategoryManager: () => void;
   onResetDefaults: () => void;
   timingCounts: {
+    today: number;
     now: number;
     next: number;
     later: number;
@@ -22,8 +23,8 @@ interface HeaderProps {
   onToggleShowCompleted: () => void;
   focusMode: boolean;
   onToggleFocusMode: () => void;
-  visibleColumns: { now: boolean; next: boolean; later: boolean };
-  onToggleColumnVisibility: (col: 'next' | 'later') => void;
+  visibleColumns: { today: boolean; now: boolean; next: boolean; later: boolean };
+  onToggleColumnVisibility: (col: 'now' | 'next' | 'later') => void;
   onOpenWhatsNew?: () => void;
   onOpenSupabaseModal?: () => void;
   isCloudConnected?: boolean;
@@ -45,7 +46,7 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleShowCompleted,
   focusMode = false,
   onToggleFocusMode,
-  visibleColumns = { now: true, next: true, later: true },
+  visibleColumns = { today: true, now: true, next: true, later: true },
   onToggleColumnVisibility,
   onOpenWhatsNew,
   onOpenSupabaseModal,
@@ -75,9 +76,9 @@ export const Header: React.FC<HeaderProps> = ({
                 <button
                   onClick={onOpenWhatsNew}
                   className="text-[10px] font-bold tracking-wider px-2 py-0.5 rounded-full bg-blue-50 hover:bg-blue-100 text-[#1868F2] border border-blue-200 transition-colors flex items-center gap-1 cursor-pointer"
-                  title="Click to view What's New in v1.2.0"
+                  title="Click to view What's New in v1.3.0"
                 >
-                  <span>v1.2.0</span>
+                  <span>v1.3.0</span>
                 </button>
               </div>
             </div>
@@ -134,7 +135,7 @@ export const Header: React.FC<HeaderProps> = ({
                   ? 'bg-amber-500 text-white shadow-md ring-2 ring-amber-400/40'
                   : 'text-amber-900 bg-amber-100/90 hover:bg-amber-200 border border-amber-300/80'
               }`}
-              title={focusMode ? 'Exit Focus Mode (Show Next & Later)' : 'Click to activate Focus Mode (Hides Next & Later)'}
+              title={focusMode ? 'Exit Focus Mode (show all columns)' : 'Click to activate Focus Mode (shows only Today)'}
             >
               <Sparkles className={`w-4 h-4 ${focusMode ? 'text-white fill-white' : 'text-amber-600 fill-amber-500'}`} />
               <span className="hidden sm:inline">{focusMode ? 'Focus: ON' : 'Focus Mode'}</span>
@@ -204,6 +205,19 @@ export const Header: React.FC<HeaderProps> = ({
             {/* Direct Hide / Show Pills */}
             <div className="hidden sm:flex items-center gap-1 bg-neutral-100/90 p-1 rounded-lg border border-neutral-200/60 text-xs font-medium">
               <span className="text-[10px] text-neutral-400 uppercase font-bold px-1">Columns:</span>
+              <button
+                id="toggle-now-column-btn"
+                onClick={() => onToggleColumnVisibility('now')}
+                className={`px-2 py-0.5 rounded-md flex items-center gap-1 transition-all ${
+                  visibleColumns.now && !focusMode
+                    ? 'bg-white text-[#1868F2] font-semibold shadow-2xs'
+                    : 'text-neutral-400 line-through bg-transparent hover:text-neutral-600'
+                }`}
+                title="Click to hide or show the 'Now' column"
+              >
+                {visibleColumns.now && !focusMode ? <Eye className="w-3 h-3 text-[#1868F2]" /> : <EyeOff className="w-3 h-3 text-neutral-400" />}
+                <span>Now ({timingCounts.now})</span>
+              </button>
               <button
                 id="toggle-next-column-btn"
                 onClick={() => onToggleColumnVisibility('next')}

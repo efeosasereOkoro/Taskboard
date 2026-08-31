@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, GripVertical, CheckCircle2, ArrowUp, ArrowDown, Database, X } from 'lucide-react';
+import { Sparkles, GripVertical, CheckCircle2, Database, X } from 'lucide-react';
 
 interface WhatsNewModalProps {
   isOpen: boolean;
@@ -30,10 +30,10 @@ export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({
               <div className="flex items-center gap-2">
                 <h2 className="text-base font-bold">What&apos;s New in Taskboard</h2>
                 <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-white/20 text-white">
-                  v1.2.0
+                  v1.3.0
                 </span>
               </div>
-              <p className="text-blue-100 text-xs">Priority controls &amp; Cloud Sync</p>
+              <p className="text-blue-100 text-xs">Today column &amp; drag to prioritize</p>
             </div>
           </div>
           <button
@@ -54,23 +54,20 @@ export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({
             <div>
               <h4 className="font-bold text-neutral-900 text-sm">Drag &amp; Drop Prioritization</h4>
               <p className="mt-0.5 leading-relaxed">
-                Grab the grip icon on any card and drag up or down. A blue horizontal line indicator shows exactly where it will land.
+                Drag any card up or down to set its priority, or drop it into another column. A blue line shows exactly where it will land, and the order is saved.
               </p>
             </div>
           </div>
 
-          {/* Feature 2: Quick Top / Bottom */}
+          {/* Feature 2: Today column */}
           <div className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0 mt-0.5">
-              <div className="flex flex-col items-center">
-                <ArrowUp className="w-3 h-3 text-indigo-600" />
-                <ArrowDown className="w-3 h-3 text-indigo-600 -mt-1" />
-              </div>
+            <div className="w-8 h-8 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0 mt-0.5">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
             </div>
             <div>
-              <h4 className="font-bold text-neutral-900 text-sm">Instant Top / Bottom Buttons</h4>
+              <h4 className="font-bold text-neutral-900 text-sm">New &ldquo;Today&rdquo; Column</h4>
               <p className="mt-0.5 leading-relaxed">
-                Hover over any task card to reveal quick <strong>↑ Top</strong> and <strong>↓ Bottom</strong> buttons to jump priority instantly.
+                A dedicated <strong>Today</strong> column sits before Now, so you can pull out the handful of things you are actually doing today.
               </p>
             </div>
           </div>
@@ -83,7 +80,7 @@ export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({
             <div>
               <h4 className="font-bold text-neutral-900 text-sm">Focus Mode</h4>
               <p className="mt-0.5 leading-relaxed">
-                Instantly collapse Next and Later columns to focus exclusively on your <strong>NOW</strong> tasks without distractions.
+                Collapse Now, Next and Later to focus exclusively on your <strong>Today</strong> tasks without distractions.
               </p>
             </div>
           </div>

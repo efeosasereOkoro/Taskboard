@@ -16,7 +16,7 @@ create table if not exists public.tasks (
   title text not null,
   description text,
   completed boolean default false not null,
-  timing text check (timing in ('now', 'next', 'later')) not null default 'now',
+  timing text check (timing in ('today', 'now', 'next', 'later')) not null default 'now',
   priority text check (priority in ('high', 'medium', 'low')) not null default 'medium',
   category_id text references public.categories(id) on delete set null,
   sub_category_id text,
@@ -44,3 +44,13 @@ create policy "Allow all delete access on tasks" on public.tasks for delete usin
 -- 4. Enable Realtime Replication
 alter publication supabase_realtime add table public.categories;
 alter publication supabase_realtime add table public.tasks;
+
+-- ---------------------------------------------------------------------------
+-- MIGRATION (v1.3.0): add the "today" timing value.
+-- Run this only if your tasks table was created before v1.3.0. It replaces the
+-- old CHECK constraint so tasks can be saved with timing = 'today'. Without it,
+-- adding or moving a task to the Today column will fail with a check violation.
+-- ---------------------------------------------------------------------------
+-- alter table public.tasks drop constraint if exists tasks_timing_check;
+-- alter table public.tasks add constraint tasks_timing_check
+--   check (timing in ('today', 'now', 'next', 'later'));

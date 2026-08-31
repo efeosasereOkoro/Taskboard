@@ -36,6 +36,21 @@ export const INITIAL_CATEGORIES: Category[] = [
 ];
 
 export const INITIAL_TASKS: Task[] = [
+  // TODAY - Doing today
+  {
+    id: 'task-today-1',
+    title: 'Clear inbox and reply to priority emails',
+    description: 'Get to inbox zero and respond to anything time-sensitive before lunch.',
+    completed: false,
+    timing: 'today',
+    priority: 'high',
+    categoryId: 'cat-work',
+    subCategoryId: 'sub-teasoo',
+    subtasks: [],
+    createdAt: Date.now(),
+    order: 0,
+  },
+
   // NOW - This week
   {
     id: 'task-1',

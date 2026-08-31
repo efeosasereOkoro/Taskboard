@@ -46,7 +46,8 @@ export default function App() {
 
   // Column Visibility & Focus Mode
   const [focusMode, setFocusMode] = useState(false);
-  const [visibleColumns, setVisibleColumns] = useState<{ now: boolean; next: boolean; later: boolean }>({
+  const [visibleColumns, setVisibleColumns] = useState<{ today: boolean; now: boolean; next: boolean; later: boolean }>({
+    today: true,
     now: true,
     next: true,
     later: true,
@@ -69,33 +70,31 @@ export default function App() {
     setSelectedSubCategoryId(subId);
   };
 
+  // Focus Mode shows only the "Today" column, hiding Now, Next and Later.
   const handleToggleFocusMode = () => {
     setFocusMode(prev => {
       const nextState = !prev;
       if (nextState) {
-        setVisibleColumns({ now: true, next: false, later: false });
+        setVisibleColumns({ today: true, now: false, next: false, later: false });
       } else {
-        setVisibleColumns({ now: true, next: true, later: true });
+        setVisibleColumns({ today: true, now: true, next: true, later: true });
       }
       return nextState;
     });
   };
 
-  const handleToggleColumnVisibility = (column: 'next' | 'later') => {
+  const handleToggleColumnVisibility = (column: 'now' | 'next' | 'later') => {
     setVisibleColumns(prev => {
       const updated = { ...prev, [column]: !prev[column] };
-      if (!updated.next && !updated.later) {
-        setFocusMode(true);
-      } else {
-        setFocusMode(false);
-      }
+      // Only "Today" showing (Now/Next/Later all hidden) is exactly Focus Mode.
+      setFocusMode(updated.today && !updated.now && !updated.next && !updated.later);
       return updated;
     });
   };
 
   const handleShowAllColumns = () => {
     setFocusMode(false);
-    setVisibleColumns({ now: true, next: true, later: true });
+    setVisibleColumns({ today: true, now: true, next: true, later: true });
   };
 
   // Filtered Tasks calculation
@@ -137,6 +136,7 @@ export default function App() {
   }, [tasks, selectedCategoryId, selectedSubCategoryId, searchQuery, showCompleted, categories]);
 
   // Tasks grouped by timing
+  const todayTasks = useMemo(() => filteredTasks.filter(t => t.timing === 'today'), [filteredTasks]);
   const nowTasks = useMemo(() => filteredTasks.filter(t => t.timing === 'now'), [filteredTasks]);
   const nextTasks = useMemo(() => filteredTasks.filter(t => t.timing === 'next'), [filteredTasks]);
   const laterTasks = useMemo(() => filteredTasks.filter(t => t.timing === 'later'), [filteredTasks]);
@@ -145,6 +145,7 @@ export default function App() {
   const timingCounts = useMemo(() => {
     const active = tasks.filter(t => !t.completed);
     return {
+      today: active.filter(t => t.timing === 'today').length,
       now: active.filter(t => t.timing === 'now').length,
       next: active.filter(t => t.timing === 'next').length,
       later: active.filter(t => t.timing === 'later').length,
@@ -187,15 +188,18 @@ export default function App() {
   };
 
   // Grid column calculation
-  const visibleCount = (visibleColumns.now ? 1 : 0) + 
-    ((!focusMode && visibleColumns.next) ? 1 : 0) + 
+  const visibleCount = (visibleColumns.today ? 1 : 0) +
+    ((!focusMode && visibleColumns.now) ? 1 : 0) +
+    ((!focusMode && visibleColumns.next) ? 1 : 0) +
     ((!focusMode && visibleColumns.later) ? 1 : 0);
 
-  const gridColsClass = visibleCount === 1 
-    ? 'grid-cols-1 max-w-2xl mx-auto' 
-    : visibleCount === 2 
-    ? 'grid-cols-1 md:grid-cols-2 max-w-5xl mx-auto' 
-    : 'grid-cols-1 md:grid-cols-3';
+  const gridColsClass = visibleCount <= 1
+    ? 'grid-cols-1 max-w-2xl mx-auto'
+    : visibleCount === 2
+    ? 'grid-cols-1 md:grid-cols-2 max-w-5xl mx-auto'
+    : visibleCount === 3
+    ? 'grid-cols-1 md:grid-cols-3'
+    : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-4';
 
   const currentCategoryObj = categories.find(c => c.id === selectedCategoryId);
   const currentSubCategoryObj = currentCategoryObj?.subcategories.find(s => s.id === selectedSubCategoryId);
@@ -270,14 +274,14 @@ export default function App() {
               </div>
               <div>
                 <h3 className="text-sm font-bold text-neutral-900">Focus Mode Active</h3>
-                <p className="text-xs text-neutral-600">Showing only &ldquo;Now&rdquo; tasks to help you get things done this week without distractions.</p>
+                <p className="text-xs text-neutral-600">Showing only &ldquo;Today&rdquo; tasks to help you focus on what you are doing today without distractions.</p>
               </div>
             </div>
             <button
               onClick={handleShowAllColumns}
               className="px-3 py-1.5 text-xs font-semibold text-[#1868F2] bg-white border border-blue-200 hover:bg-blue-50 rounded-xl transition-all shadow-2xs"
             >
-              Show Next & Later
+              Show all columns
             </button>
           </div>
         )}
@@ -290,7 +294,16 @@ export default function App() {
               mobileTab === 'all' ? 'bg-white text-neutral-900 shadow-xs' : 'text-neutral-600'
             }`}
           >
-            All Columns
+            All
+          </button>
+          <button
+            onClick={() => setMobileTab('today')}
+            className={`flex-1 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1 ${
+              mobileTab === 'today' ? 'bg-emerald-600 text-white shadow-xs' : 'text-neutral-600'
+            }`}
+          >
+            <span>Today</span>
+            <span className="text-[10px] opacity-80">({todayTasks.length})</span>
           </button>
           <button
             onClick={() => setMobileTab('now')}
@@ -323,8 +336,37 @@ export default function App() {
 
         {/* Timing Board (Now / Next / Later with dynamic grid and focus hiding) */}
         <div className={`grid ${gridColsClass} gap-5 lg:gap-6 items-start transition-all duration-300`}>
+          {/* TODAY: Doing today */}
+          {visibleColumns.today && (
+            <div className={`${mobileTab === 'all' || mobileTab === 'today' ? 'block' : 'hidden md:block'}`}>
+              <TimingColumn
+                timing="today"
+                title="Today"
+                subtitle="Doing today"
+                badgeColor="bg-emerald-50 text-emerald-700 border-emerald-200"
+                tasks={todayTasks}
+                categories={categories}
+                selectedCategoryId={selectedCategoryId}
+                selectedSubCategoryId={selectedSubCategoryId}
+                onToggleComplete={toggleTaskComplete}
+                onToggleSubTask={toggleSubTask}
+                onAddSubTask={addSubTask}
+                onDeleteSubTask={deleteSubTask}
+                onUpdateSubTask={updateSubTaskTitle}
+                onSetTiming={setTaskTiming}
+                onSetPriority={(id, p) => updateTask(id, { priority: p })}
+                onEditTask={handleEditTask}
+                onDeleteTask={deleteTask}
+                onQuickAddTask={handleQuickAdd}
+                onReorderTask={reorderTask}
+                onMoveToTop={handleMoveToTop}
+                onMoveToBottom={handleMoveToBottom}
+              />
+            </div>
+          )}
+
           {/* NOW: This week */}
-          {visibleColumns.now && (
+          {!focusMode && visibleColumns.now && (
             <div className={`${mobileTab === 'all' || mobileTab === 'now' ? 'block' : 'hidden md:block'}`}>
               <TimingColumn
                 timing="now"

@@ -22,7 +22,7 @@ function mapDbTaskToTask(db: any): Task {
     subtasks: Array.isArray(db.subtasks) ? db.subtasks : [],
     createdAt: Number(db.created_at) || Date.now(),
     completedAt: db.completed_at ? Number(db.completed_at) : undefined,
-    order: db.order ? Number(db.order) : undefined,
+    order: db.order != null ? Number(db.order) : undefined,
   };
 }
 
@@ -39,8 +39,19 @@ function mapTaskToDb(task: Task) {
     subtasks: task.subtasks || [],
     created_at: task.createdAt,
     completed_at: task.completedAt || null,
-    order: task.order || null,
+    order: task.order != null ? task.order : null,
   };
+}
+
+// Sort a task list by explicit order (ascending), falling back to newest-first
+// for tasks that have never been reordered.
+function sortByOrder(list: Task[]): Task[] {
+  return [...list].sort((a, b) => {
+    const ao = a.order ?? Number.MAX_SAFE_INTEGER;
+    const bo = b.order ?? Number.MAX_SAFE_INTEGER;
+    if (ao !== bo) return ao - bo;
+    return b.createdAt - a.createdAt;
+  });
 }
 
 function mapDbCategoryToCategory(db: any): Category {
@@ -126,14 +137,14 @@ export function useTaskManager() {
           // If remote tasks exist, load them and merge with any existing local tasks
           const remoteTasks = taskData.map(mapDbTaskToTask);
           const remoteIds = new Set(remoteTasks.map(t => t.id));
-          
+
           // If there are local tasks not yet in remote, push them automatically
           const localTasksToPush = tasks.filter(t => !remoteIds.has(t.id));
           for (const localTask of localTasksToPush) {
             await supabase.from('tasks').upsert(mapTaskToDb(localTask));
           }
 
-          setTasks([...localTasksToPush, ...remoteTasks]);
+          setTasks(sortByOrder([...localTasksToPush, ...remoteTasks]));
         } else {
           // Supabase tasks table is empty: automatically push all current tasks
           const initialTasksToPush = tasks.length > 0 ? tasks : INITIAL_TASKS;
@@ -341,9 +352,13 @@ export function useTaskManager() {
     updateTask(id, { timing });
   }, [updateTask]);
 
-  // Reorder task within a column or across columns
+  // Reorder task within a column or across columns.
+  // Rebuilds the ordered list, re-stamps every task's `order` to its new index,
+  // and persists any task whose order or timing changed so the arrangement
+  // survives a reload (including from Supabase).
   const reorderTask = useCallback((activeId: string, targetId: string | null, targetTiming?: Timing, position: 'before' | 'after' = 'before') => {
-    let reorderedList: Task[] = [];
+    let changedTasks: Task[] = [];
+
     setTasks(prev => {
       const activeIndex = prev.findIndex(t => t.id === activeId);
       if (activeIndex === -1 || activeId === targetId) return prev;
@@ -354,47 +369,57 @@ export function useTaskManager() {
       }
 
       const remaining = prev.filter(t => t.id !== activeId);
+      const columnTiming = targetTiming || activeTask.timing;
+      let reordered: Task[];
 
       if (!targetId) {
         if (position === 'before') {
-          const firstTargetIndex = remaining.findIndex(t => t.timing === (targetTiming || activeTask.timing));
-          if (firstTargetIndex === -1) {
-            reorderedList = [activeTask, ...remaining];
-            return reorderedList;
-          }
-          reorderedList = [...remaining.slice(0, firstTargetIndex), activeTask, ...remaining.slice(firstTargetIndex)];
-          return reorderedList;
+          const firstTargetIndex = remaining.findIndex(t => t.timing === columnTiming);
+          reordered = firstTargetIndex === -1
+            ? [activeTask, ...remaining]
+            : [...remaining.slice(0, firstTargetIndex), activeTask, ...remaining.slice(firstTargetIndex)];
         } else {
           let lastTargetIndex = -1;
           for (let i = remaining.length - 1; i >= 0; i--) {
-            if (remaining[i].timing === (targetTiming || activeTask.timing)) {
+            if (remaining[i].timing === columnTiming) {
               lastTargetIndex = i;
               break;
             }
           }
-          if (lastTargetIndex === -1) {
-            reorderedList = [...remaining, activeTask];
-            return reorderedList;
-          }
-          reorderedList = [...remaining.slice(0, lastTargetIndex + 1), activeTask, ...remaining.slice(lastTargetIndex + 1)];
-          return reorderedList;
+          reordered = lastTargetIndex === -1
+            ? [...remaining, activeTask]
+            : [...remaining.slice(0, lastTargetIndex + 1), activeTask, ...remaining.slice(lastTargetIndex + 1)];
+        }
+      } else {
+        const targetIndex = remaining.findIndex(t => t.id === targetId);
+        if (targetIndex === -1) {
+          reordered = [activeTask, ...remaining];
+        } else {
+          const insertIndex = position === 'after' ? targetIndex + 1 : targetIndex;
+          reordered = [...remaining.slice(0, insertIndex), activeTask, ...remaining.slice(insertIndex)];
         }
       }
 
-      const targetIndex = remaining.findIndex(t => t.id === targetId);
-      if (targetIndex === -1) {
-        reorderedList = [activeTask, ...remaining];
-        return reorderedList;
-      }
+      // Re-stamp order to the new array position for a stable, persistable sort key.
+      const withOrder = reordered.map((t, i) => ({ ...t, order: i }));
 
-      const insertIndex = position === 'after' ? targetIndex + 1 : targetIndex;
-      reorderedList = [...remaining.slice(0, insertIndex), activeTask, ...remaining.slice(insertIndex)];
-      return reorderedList;
+      // Capture only the tasks whose order or timing changed, for cloud persistence.
+      const prevById = new Map<string, Task>(prev.map(t => [t.id, t] as [string, Task]));
+      changedTasks = withOrder.filter(t => {
+        const old = prevById.get(t.id);
+        return !old || old.order !== t.order || old.timing !== t.timing;
+      });
+
+      return withOrder;
     });
 
     const supabase = getSupabase();
     if (supabase) {
-      supabase.from('tasks').update({ timing: targetTiming }).eq('id', activeId).then();
+      for (const t of changedTasks) {
+        supabase.from('tasks').upsert(mapTaskToDb(t)).then(({ error }) => {
+          if (error) console.error('Auto-sync reorder task failed:', error);
+        });
+      }
     }
   }, []);
 

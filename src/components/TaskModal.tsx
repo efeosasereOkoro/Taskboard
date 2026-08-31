@@ -165,7 +165,20 @@ export const TaskModal: React.FC<TaskModalProps> = ({
             <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1.5">
               When to do it
             </label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <button
+                type="button"
+                onClick={() => setTiming('today')}
+                className={`p-3 rounded-xl border text-left transition-all ${
+                  timing === 'today'
+                    ? 'border-emerald-600 bg-emerald-50/70 text-emerald-700 ring-2 ring-emerald-500/20'
+                    : 'border-neutral-200 hover:border-neutral-300 text-neutral-700 bg-white'
+                }`}
+              >
+                <div className="text-xs font-bold">Today</div>
+                <div className="text-[11px] text-neutral-500 mt-0.5">Doing today</div>
+              </button>
+
               <button
                 type="button"
                 onClick={() => setTiming('now')}

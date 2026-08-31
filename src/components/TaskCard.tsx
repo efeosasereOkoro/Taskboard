@@ -88,6 +88,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   };
 
   const timingLabels: Record<Timing, { label: string; sub: string; badge: string }> = {
+    today: { label: 'Today', sub: 'Doing today', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200/80' },
     now: { label: 'Now', sub: 'This week', badge: 'bg-blue-50 text-[#1868F2] border-blue-200/80' },
     next: { label: 'Next', sub: 'From next week', badge: 'bg-indigo-50 text-indigo-700 border-indigo-200/80' },
     later: { label: 'Later', sub: 'Next month+', badge: 'bg-neutral-100 text-neutral-600 border-neutral-200' },
@@ -170,7 +171,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                   <div className="px-2 py-1 text-[10px] font-semibold text-neutral-400 uppercase tracking-wider">
                     Move timing:
                   </div>
-                  {(['now', 'next', 'later'] as Timing[]).map(t => (
+                  {(['today', 'now', 'next', 'later'] as Timing[]).map(t => (
                     <button
                       key={t}
                       onClick={() => {

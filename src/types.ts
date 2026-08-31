@@ -1,4 +1,4 @@
-export type Timing = 'now' | 'next' | 'later';
+export type Timing = 'today' | 'now' | 'next' | 'later';
 
 export type Priority = 'high' | 'medium' | 'low';
 
