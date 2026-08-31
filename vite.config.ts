@@ -5,6 +5,9 @@ import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
   return {
+    // Served from https://efeosasereOkoro.github.io/Taskboard/ on GitHub Pages.
+    // Vite uses this to prefix asset URLs so they resolve under the repo subpath.
+    base: '/Taskboard/',
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
