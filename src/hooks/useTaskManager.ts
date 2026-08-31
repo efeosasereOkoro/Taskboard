@@ -319,32 +319,58 @@ export function useTaskManager() {
   }, []);
 
   const toggleTaskComplete = useCallback((id: string) => {
-    let updatedTaskObj: Task | null = null;
-    setTasks(prev =>
-      prev.map(task => {
-        if (task.id === id) {
-          const isCompleted = !task.completed;
-          const updatedSubtasks = isCompleted
-            ? task.subtasks.map(st => ({ ...st, completed: true }))
-            : task.subtasks;
-          const updated = {
-            ...task,
-            completed: isCompleted,
-            completedAt: isCompleted ? Date.now() : undefined,
-            subtasks: updatedSubtasks,
-          };
-          updatedTaskObj = updated;
-          return updated;
+    let changedTasks: Task[] = [];
+
+    setTasks(prev => {
+      const idx = prev.findIndex(t => t.id === id);
+      if (idx === -1) return prev;
+
+      const task = prev[idx];
+      const isCompleted = !task.completed;
+      const updated: Task = {
+        ...task,
+        completed: isCompleted,
+        completedAt: isCompleted ? Date.now() : undefined,
+        // Completing a task also ticks off all its subtasks.
+        subtasks: isCompleted ? task.subtasks.map(st => ({ ...st, completed: true })) : task.subtasks,
+      };
+
+      if (!isCompleted) {
+        // Re-opening a task: update in place, keep its position and order.
+        changedTasks = [updated];
+        return prev.map(t => (t.id === id ? updated : t));
+      }
+
+      // Completing: move the task to the bottom of its timing column.
+      const remaining = prev.filter(t => t.id !== id);
+      let lastSameTimingIndex = -1;
+      for (let i = remaining.length - 1; i >= 0; i--) {
+        if (remaining[i].timing === updated.timing) {
+          lastSameTimingIndex = i;
+          break;
         }
-        return task;
-      })
-    );
+      }
+      const moved = lastSameTimingIndex === -1
+        ? [...remaining, updated]
+        : [...remaining.slice(0, lastSameTimingIndex + 1), updated, ...remaining.slice(lastSameTimingIndex + 1)];
+
+      // Re-stamp order so the new position survives a reload (including from Supabase).
+      const withOrder = moved.map((t, i) => ({ ...t, order: i }));
+      const prevById = new Map<string, Task>(prev.map(t => [t.id, t] as [string, Task]));
+      changedTasks = withOrder.filter(t => {
+        const old = prevById.get(t.id);
+        return !old || old.order !== t.order || old.completed !== t.completed;
+      });
+      return withOrder;
+    });
 
     const supabase = getSupabase();
-    if (supabase && updatedTaskObj) {
-      supabase.from('tasks').upsert(mapTaskToDb(updatedTaskObj)).then(({ error }) => {
-        if (error) console.error('Auto-sync toggle task failed:', error);
-      });
+    if (supabase) {
+      for (const t of changedTasks) {
+        supabase.from('tasks').upsert(mapTaskToDb(t)).then(({ error }) => {
+          if (error) console.error('Auto-sync toggle task failed:', error);
+        });
+      }
     }
   }, []);
 
