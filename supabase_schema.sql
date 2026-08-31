@@ -23,7 +23,8 @@ create table if not exists public.tasks (
   subtasks jsonb default '[]'::jsonb,
   created_at bigint not null,
   completed_at bigint,
-  "order" bigint
+  "order" bigint,
+  updated_at bigint
 );
 
 -- 3. Enable Row Level Security (RLS) or public access for prototype
@@ -54,3 +55,10 @@ alter publication supabase_realtime add table public.tasks;
 -- alter table public.tasks drop constraint if exists tasks_timing_check;
 -- alter table public.tasks add constraint tasks_timing_check
 --   check (timing in ('today', 'now', 'next', 'later'));
+
+-- ---------------------------------------------------------------------------
+-- MIGRATION (v1.4.0): add the "updated_at" column used for last-write-wins
+-- sync. Run this if your tasks table was created before v1.4.0. Without it,
+-- saving a task fails because the app sends an updated_at value.
+-- ---------------------------------------------------------------------------
+-- alter table public.tasks add column if not exists updated_at bigint;

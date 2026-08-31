@@ -23,6 +23,7 @@ function mapDbTaskToTask(db: any): Task {
     createdAt: Number(db.created_at) || Date.now(),
     completedAt: db.completed_at ? Number(db.completed_at) : undefined,
     order: db.order != null ? Number(db.order) : undefined,
+    updatedAt: db.updated_at != null ? Number(db.updated_at) : undefined,
   };
 }
 
@@ -40,7 +41,13 @@ function mapTaskToDb(task: Task) {
     created_at: task.createdAt,
     completed_at: task.completedAt || null,
     order: task.order != null ? task.order : null,
+    updated_at: task.updatedAt != null ? task.updatedAt : null,
   };
+}
+
+// Stamp a task with the current time so later merges know it is the freshest copy.
+function stamp(task: Task): Task {
+  return { ...task, updatedAt: Date.now() };
 }
 
 // Sort a task list by explicit order (ascending), falling back to newest-first
@@ -52,6 +59,20 @@ function sortByOrder(list: Task[]): Task[] {
     if (ao !== bo) return ao - bo;
     return b.createdAt - a.createdAt;
   });
+}
+
+// Merge local and remote task lists keeping, for each id, whichever copy was
+// changed most recently. Prevents a stale cloud row from reverting a local edit.
+function mergeByUpdatedAt(local: Task[], remote: Task[]): Task[] {
+  const byId = new Map<string, Task>();
+  for (const t of remote) byId.set(t.id, t);
+  for (const t of local) {
+    const r = byId.get(t.id);
+    if (!r || (t.updatedAt ?? 0) >= (r.updatedAt ?? 0)) {
+      byId.set(t.id, t);
+    }
+  }
+  return sortByOrder([...byId.values()]);
 }
 
 function mapDbCategoryToCategory(db: any): Category {
@@ -134,17 +155,21 @@ export function useTaskManager() {
           .order('created_at', { ascending: false });
 
         if (!taskError && taskData && taskData.length > 0 && isSubscribed) {
-          // If remote tasks exist, load them and merge with any existing local tasks
+          // Remote tasks exist. Merge with local using last-write-wins so a
+          // local change is never lost to a stale cloud copy.
           const remoteTasks = taskData.map(mapDbTaskToTask);
-          const remoteIds = new Set(remoteTasks.map(t => t.id));
+          const remoteById = new Map(remoteTasks.map(t => [t.id, t] as [string, Task]));
 
-          // If there are local tasks not yet in remote, push them automatically
-          const localTasksToPush = tasks.filter(t => !remoteIds.has(t.id));
-          for (const localTask of localTasksToPush) {
-            await supabase.from('tasks').upsert(mapTaskToDb(localTask));
+          // Push any local task that is missing from the cloud or is newer than
+          // the cloud copy, so the database heals to match local state.
+          for (const localTask of tasks) {
+            const remote = remoteById.get(localTask.id);
+            if (!remote || (localTask.updatedAt ?? 0) > (remote.updatedAt ?? 0)) {
+              await supabase.from('tasks').upsert(mapTaskToDb(localTask));
+            }
           }
 
-          setTasks(sortByOrder([...localTasksToPush, ...remoteTasks]));
+          setTasks(mergeByUpdatedAt(tasks, remoteTasks));
         } else {
           // Supabase tasks table is empty: automatically push all current tasks
           const initialTasksToPush = tasks.length > 0 ? tasks : INITIAL_TASKS;
@@ -258,6 +283,7 @@ export function useTaskManager() {
         completed: false,
       })),
       createdAt: Date.now(),
+      updatedAt: Date.now(),
     };
 
     setTasks(prev => [newTask, ...prev]);
@@ -289,7 +315,7 @@ export function useTaskManager() {
     setTasks(prev =>
       prev.map(task => {
         if (task.id === id) {
-          const updated = { ...task, ...updates };
+          const updated = { ...task, ...updates, updatedAt: Date.now() };
           if (updates.completed !== undefined) {
             updated.completedAt = updates.completed ? Date.now() : undefined;
           }
@@ -333,6 +359,7 @@ export function useTaskManager() {
         completedAt: isCompleted ? Date.now() : undefined,
         // Completing a task also ticks off all its subtasks.
         subtasks: isCompleted ? task.subtasks.map(st => ({ ...st, completed: true })) : task.subtasks,
+        updatedAt: Date.now(),
       };
 
       if (!isCompleted) {
@@ -354,14 +381,24 @@ export function useTaskManager() {
         ? [...remaining, updated]
         : [...remaining.slice(0, lastSameTimingIndex + 1), updated, ...remaining.slice(lastSameTimingIndex + 1)];
 
-      // Re-stamp order so the new position survives a reload (including from Supabase).
-      const withOrder = moved.map((t, i) => ({ ...t, order: i }));
+      // Re-stamp order so the new position survives a reload, and stamp the time
+      // on every task whose order or completion changed so it wins on merge.
       const prevById = new Map<string, Task>(prev.map(t => [t.id, t] as [string, Task]));
-      changedTasks = withOrder.filter(t => {
+      const now = Date.now();
+      const final = moved.map((t, i) => {
+        const old = prevById.get(t.id);
+        const orderChanged = !old || old.order !== i;
+        const completedChanged = !old || old.completed !== t.completed;
+        if (orderChanged || completedChanged) {
+          return { ...t, order: i, updatedAt: now };
+        }
+        return { ...t, order: i };
+      });
+      changedTasks = final.filter(t => {
         const old = prevById.get(t.id);
         return !old || old.order !== t.order || old.completed !== t.completed;
       });
-      return withOrder;
+      return final;
     });
 
     const supabase = getSupabase();
@@ -426,17 +463,25 @@ export function useTaskManager() {
         }
       }
 
-      // Re-stamp order to the new array position for a stable, persistable sort key.
-      const withOrder = reordered.map((t, i) => ({ ...t, order: i }));
+      // Re-stamp order to the new array position, and stamp the change time on
+      // every task whose order or timing changed so it wins on a later merge.
+      const prevById = new Map<string, Task>(prev.map(t => [t.id, t] as [string, Task]));
+      const now = Date.now();
+      const final = reordered.map((t, i) => {
+        const old = prevById.get(t.id);
+        if (!old || old.order !== i || old.timing !== t.timing) {
+          return { ...t, order: i, updatedAt: now };
+        }
+        return { ...t, order: i };
+      });
 
       // Capture only the tasks whose order or timing changed, for cloud persistence.
-      const prevById = new Map<string, Task>(prev.map(t => [t.id, t] as [string, Task]));
-      changedTasks = withOrder.filter(t => {
+      changedTasks = final.filter(t => {
         const old = prevById.get(t.id);
         return !old || old.order !== t.order || old.timing !== t.timing;
       });
 
-      return withOrder;
+      return final;
     });
 
     const supabase = getSupabase();
@@ -494,6 +539,7 @@ export function useTaskManager() {
             subtasks: task.subtasks.map(st =>
               st.id === subtaskId ? { ...st, completed: !st.completed } : st
             ),
+            updatedAt: Date.now(),
           };
           updatedTaskObj = updated;
           return updated;
@@ -524,6 +570,7 @@ export function useTaskManager() {
           const updated = {
             ...task,
             subtasks: [...task.subtasks, newSubTask],
+            updatedAt: Date.now(),
           };
           updatedTaskObj = updated;
           return updated;
@@ -548,6 +595,7 @@ export function useTaskManager() {
           const updated = {
             ...task,
             subtasks: task.subtasks.filter(st => st.id !== subtaskId),
+            updatedAt: Date.now(),
           };
           updatedTaskObj = updated;
           return updated;
@@ -574,6 +622,7 @@ export function useTaskManager() {
             subtasks: task.subtasks.map(st =>
               st.id === subtaskId ? { ...st, title: title.trim() } : st
             ),
+            updatedAt: Date.now(),
           };
           updatedTaskObj = updated;
           return updated;

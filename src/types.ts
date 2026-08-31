@@ -33,6 +33,9 @@ export interface Task {
   createdAt: number;
   completedAt?: number;
   order?: number;
+  // Epoch ms of the last local change. Used for last-write-wins merging so a
+  // change is never lost to a stale cloud copy on reload.
+  updatedAt?: number;
 }
 
 export type ViewMode = 'board' | 'list';
