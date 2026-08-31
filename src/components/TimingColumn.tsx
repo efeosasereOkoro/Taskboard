@@ -117,6 +117,10 @@ export const TimingColumn: React.FC<TimingColumnProps> = ({
     clearDragState();
   };
 
+  // Badge shows the count of active (uncompleted) tasks, so it drops
+  // when a task is completed.
+  const activeCount = tasks.filter(t => !t.completed).length;
+
   return (
     <div
       id={`timing-column-${timing}`}
@@ -136,7 +140,7 @@ export const TimingColumn: React.FC<TimingColumnProps> = ({
             <span
               className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${badgeColor}`}
             >
-              {tasks.length}
+              {activeCount}
             </span>
           </div>
           <p className="text-xs text-neutral-500 mt-0.5">{subtitle}</p>
