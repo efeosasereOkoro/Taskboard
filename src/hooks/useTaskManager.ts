@@ -54,6 +54,10 @@ function stamp(task: Task): Task {
 // for tasks that have never been reordered.
 function sortByOrder(list: Task[]): Task[] {
   return [...list].sort((a, b) => {
+    // Completed tasks should always sort to the end
+    if (a.completed !== b.completed) {
+      return a.completed ? 1 : -1;
+    }
     const ao = a.order ?? Number.MAX_SAFE_INTEGER;
     const bo = b.order ?? Number.MAX_SAFE_INTEGER;
     if (ao !== bo) return ao - bo;
