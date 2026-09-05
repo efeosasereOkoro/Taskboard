@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, Search, FolderKanban, RotateCcw, CheckCircle2, SlidersHorizontal, Sparkles, Eye, EyeOff, Layers, Database } from 'lucide-react';
+import { Plus, Search, FolderKanban, RotateCcw, CheckCircle2, SlidersHorizontal, Sparkles, Eye, EyeOff, Layers, Database, BarChart3 } from 'lucide-react';
 import { Category, Timing } from '../types';
 
 interface HeaderProps {
@@ -11,6 +11,7 @@ interface HeaderProps {
   onSearchChange: (query: string) => void;
   onOpenNewTask: (timing?: Timing) => void;
   onOpenCategoryManager: () => void;
+  onOpenAnalytics?: () => void;
   onResetDefaults: () => void;
   timingCounts: {
     today: number;
@@ -40,6 +41,7 @@ export const Header: React.FC<HeaderProps> = ({
   onSearchChange,
   onOpenNewTask,
   onOpenCategoryManager,
+  onOpenAnalytics,
   onResetDefaults,
   timingCounts,
   showCompleted,
@@ -75,7 +77,7 @@ export const Header: React.FC<HeaderProps> = ({
                 <span className="font-bold text-lg tracking-tight text-neutral-900">Taskboard</span>
                 <button
                   onClick={onOpenWhatsNew}
-                  className="text-[10px] font-bold tracking-wider px-2 py-0.5 rounded-full bg-blue-50 hover:bg-blue-100 text-[#1868F2] border border-blue-200 transition-colors flex items-center gap-1 cursor-pointer"
+                  className="text-[10px] font-bold tracking-wider px-2 py-0.5 rounded-full bg-blue-50 hover:bg-blue-100 text-[#1868F2] border border-blue-200 transition-colors flex items-center ga[...]
                   title="Click to view What's New in v1.3.0"
                 >
                   <span>v1.3.0</span>
@@ -94,12 +96,12 @@ export const Header: React.FC<HeaderProps> = ({
                 value={searchQuery}
                 onChange={e => onSearchChange(e.target.value)}
                 placeholder="Search tasks, subtasks, categories..."
-                className="w-full pl-9 pr-8 py-1.5 text-sm bg-neutral-100/80 hover:bg-neutral-100 focus:bg-white text-neutral-900 rounded-lg border border-transparent focus:border-[#1868F2]/30 focus:ring-2 focus:ring-[#1868F2]/20 transition-all placeholder:text-neutral-400"
+                className="w-full pl-9 pr-8 py-1.5 text-sm bg-neutral-100/80 hover:bg-neutral-100 focus:bg-white text-neutral-900 rounded-lg border border-transparent focus:border-[#1868F2]/30 foc[...]
               />
               {searchQuery && (
                 <button
                   onClick={() => onSearchChange('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 text-xs w-4 h-4 rounded-full flex items-center justify-center hover:bg-neutral-200"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 text-xs w-4 h-4 rounded-full flex items-center justify-center hover:bg-neutral-200[...]
                   title="Clear search"
                 >
                   ✕
@@ -110,6 +112,17 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Action Buttons */}
           <div className="flex items-center gap-2">
+            {/* Analytics Button */}
+            <button
+              id="analytics-btn"
+              onClick={onOpenAnalytics}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-neutral-700 bg-neutral-100 hover:bg-neutral-200/80 active:bg-neutral-200 rounded-lg transition-colors duration-200 shadow-sm"
+              title="View task completion analytics"
+            >
+              <BarChart3 className="w-4 h-4 text-neutral-600" />
+              <span className="hidden sm:inline">Analytics</span>
+            </button>
+
             {/* Supabase Cloud Sync Status Button */}
             <button
               id="supabase-status-btn"
@@ -144,7 +157,7 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               id="open-categories-btn"
               onClick={onOpenCategoryManager}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-neutral-700 bg-neutral-100 hover:bg-neutral-200/80 active:bg-neutral-200 rounded-lg transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-neutral-700 bg-neutral-100 hover:bg-neutral-200/80 active:bg-neutral-200 rounded-lg transition-color[...]
               title="Organize Categories & Subcategories"
             >
               <FolderKanban className="w-4 h-4 text-neutral-600" />
@@ -154,7 +167,7 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               id="new-task-main-btn"
               onClick={() => onOpenNewTask('now')}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-sm font-semibold text-white bg-[#1868F2] hover:bg-[#1456ca] active:bg-[#0f44a3] rounded-lg shadow-sm shadow-blue-500/25 transition-all"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-sm font-semibold text-white bg-[#1868F2] hover:bg-[#1456ca] active:bg-[#0f44a3] rounded-lg shadow-sm shadow-blue-500/2[...]
             >
               <Plus className="w-4 h-4" />
               <span>New Task</span>
