@@ -4,6 +4,7 @@ import { Header } from './components/Header';
 import { TimingColumn } from './components/TimingColumn';
 import { TaskModal } from './components/TaskModal';
 import { CategoryManagerModal } from './components/CategoryManagerModal';
+import { AnalyticsModal } from './components/AnalyticsModal';
 import { WhatsNewModal } from './components/WhatsNewModal';
 import { SupabaseModal } from './components/SupabaseModal';
 import { Task, Timing, Priority } from './types';
@@ -61,6 +62,7 @@ export default function App() {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [initialModalTiming, setInitialModalTiming] = useState<Timing>('now');
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false);
   const [isWhatsNewOpen, setIsWhatsNewOpen] = useState(false);
   const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState(false);
 
@@ -216,6 +218,7 @@ export default function App() {
         onSearchChange={setSearchQuery}
         onOpenNewTask={handleOpenNewTask}
         onOpenCategoryManager={() => setIsCategoryModalOpen(true)}
+        onOpenAnalytics={() => setIsAnalyticsOpen(true)}
         onResetDefaults={resetToDefaults}
         timingCounts={timingCounts}
         showCompleted={showCompleted}
@@ -497,6 +500,14 @@ export default function App() {
         onUpdateSubCategory={updateSubCategory}
         onDeleteSubCategory={deleteSubCategory}
         onResetDefaults={resetToDefaults}
+      />
+
+      {/* Analytics Modal */}
+      <AnalyticsModal
+        isOpen={isAnalyticsOpen}
+        onClose={() => setIsAnalyticsOpen(false)}
+        tasks={tasks}
+        categories={categories}
       />
 
       {/* What's New Modal */}
